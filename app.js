@@ -171,6 +171,7 @@ function createThread(title = "Unsent") {
     messages: [],
     updatedAt: Date.now(),
     disappearAfterMs: null,
+    autoReplies: false,
   };
 }
 
@@ -179,7 +180,7 @@ function defaultState() {
   return {
     activeThreadId: null,
     threads: [thread],
-    settings: { hidePreviews: false, autoReplies: false },
+    settings: { hidePreviews: false },
   };
 }
 
@@ -216,17 +217,15 @@ function loadState() {
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.threads)) return defaultState();
     if (!parsed.settings || typeof parsed.settings !== "object") {
-      parsed.settings = { hidePreviews: false, autoReplies: false };
+      parsed.settings = { hidePreviews: false };
     }
     if (typeof parsed.settings.hidePreviews !== "boolean") {
       parsed.settings.hidePreviews = false;
     }
-    if (typeof parsed.settings.autoReplies !== "boolean") {
-      parsed.settings.autoReplies = false;
-    }
     for (const thread of parsed.threads) {
       if (!Array.isArray(thread.messages)) thread.messages = [];
       if (thread.disappearAfterMs == null) thread.disappearAfterMs = null;
+      if (typeof thread.autoReplies !== "boolean") thread.autoReplies = false;
       for (const msg of thread.messages) {
         if (!msg.role) msg.role = "me";
       }
@@ -419,10 +418,9 @@ function renderTopbar(activeThread) {
     backBtn.classList.add("hidden");
     editBtn.classList.remove("hidden");
     previewBtn.classList.remove("hidden");
-    aiBtn.classList.remove("hidden");
+    aiBtn.classList.add("hidden");
     editBtn.textContent = isEditingThreads ? "Done" : "Edit";
     previewBtn.textContent = state.settings.hidePreviews ? "Show Preview" : "Hide Preview";
-    aiBtn.textContent = state.settings.autoReplies ? "Replies: On" : "Replies: Off";
     newThreadBtn.classList.remove("hidden");
     menuBtn.classList.remove("hidden");
     clearBtn.classList.add("hidden");
@@ -440,7 +438,8 @@ function renderTopbar(activeThread) {
   backBtn.classList.remove("hidden");
   editBtn.classList.add("hidden");
   previewBtn.classList.add("hidden");
-  aiBtn.classList.add("hidden");
+  aiBtn.classList.remove("hidden");
+  aiBtn.textContent = activeThread.autoReplies ? "Replies: On" : "Replies: Off";
   newThreadBtn.classList.add("hidden");
   menuBtn.classList.remove("hidden");
   clearBtn.classList.remove("hidden");
@@ -530,12 +529,11 @@ function pickMockReply() {
 }
 
 function maybeSendAutoReply(threadId) {
-  if (!state.settings.autoReplies) return;
   const delay = 700 + Math.floor(Math.random() * 1200);
   setTimeout(() => {
-    if (!state.settings.autoReplies) return;
     const thread = state.threads.find((t) => t.id === threadId);
     if (!thread) return;
+    if (!thread.autoReplies) return;
 
     const reply = { id: uid(), text: pickMockReply(), ts: Date.now(), role: "other" };
     thread.messages.push(reply);
@@ -724,9 +722,11 @@ previewBtn.addEventListener("click", () => {
   render();
 });
 aiBtn.addEventListener("click", () => {
-  state.settings.autoReplies = !state.settings.autoReplies;
+  const activeThread = getActiveThread();
+  if (!activeThread) return;
+  activeThread.autoReplies = !activeThread.autoReplies;
   saveState();
-  toast(state.settings.autoReplies ? "Auto replies on." : "Auto replies off.");
+  toast(activeThread.autoReplies ? "Replies on for this thread." : "Replies off for this thread.");
   setMenuOpen(false);
   render();
 });
@@ -765,8 +765,7 @@ lockInputEl.addEventListener("keydown", (e) => {
   if (e.key === "Enter") void unlockApp();
 });
 
-if (!state.settings) state.settings = { hidePreviews: false, autoReplies: false };
-if (typeof state.settings.autoReplies !== "boolean") state.settings.autoReplies = false;
+if (!state.settings) state.settings = { hidePreviews: false };
 if (expireAllThreads()) saveState();
 setInterval(() => {
   if (!expireAllThreads()) return;
