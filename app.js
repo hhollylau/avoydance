@@ -115,6 +115,10 @@ function formatTime(ts) {
   return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function appVersion() {
+  return window.APP_VERSION || "dev";
+}
+
 function createThread(title = "Unsent") {
   return {
     id: uid(),
@@ -278,11 +282,11 @@ function renderThreadList() {
     const preview = document.createElement("div");
     preview.className = "thread-preview";
     if (state.settings.hidePreviews) {
-      preview.textContent = "Message hidden";
+      preview.textContent = "Note hidden";
     } else {
       preview.textContent = thread.messages.length
         ? thread.messages[thread.messages.length - 1].text
-        : "No messages yet";
+        : "No notes yet";
     }
 
     const del = document.createElement("button");
@@ -353,7 +357,7 @@ function renderChatView(activeThread) {
 function renderTopbar(activeThread) {
   if (!activeThread) {
     titleEl.textContent = "Messages";
-    subtitleEl.textContent = "avoydance";
+    subtitleEl.textContent = `private local notes · v${appVersion()}`;
     backBtn.classList.add("hidden");
     editBtn.classList.remove("hidden");
     previewBtn.classList.remove("hidden");
@@ -369,7 +373,7 @@ function renderTopbar(activeThread) {
   }
 
   titleEl.textContent = activeThread.title;
-  subtitleEl.textContent = `unsent messages - timer ${formatTimerLabel(activeThread.disappearAfterMs)}`;
+  subtitleEl.textContent = `unsent notes · timer ${formatTimerLabel(activeThread.disappearAfterMs)}`;
   backBtn.classList.remove("hidden");
   editBtn.classList.add("hidden");
   previewBtn.classList.add("hidden");
@@ -480,10 +484,10 @@ function clearActiveThreadMessages() {
   const activeThread = getActiveThread();
   if (!activeThread) return;
   if (activeThread.messages.length === 0) {
-    toast("No messages to clear.");
+    toast("No notes to clear.");
     return;
   }
-  const ok = confirm(`Clear all messages in "${activeThread.title}"?`);
+  const ok = confirm(`Clear all notes in "${activeThread.title}"?`);
   if (!ok) return;
   activeThread.messages = [];
   activeThread.updatedAt = Date.now();
