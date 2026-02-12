@@ -1,12 +1,28 @@
 <!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Avoydance</title>
-  </head>
-  <body style="font-family: -apple-system, system-ui, sans-serif; padding: 24px;">
-    <h1>Avoydance</h1>
-    <p>A way to avoid sending texts you’ll regret.</p>
-  </body>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>Avoydance</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="title">Avoydance</div>
+    <div class="subtitle">unsent messages</div>
+  </header>
+
+  <main class="messages" id="messages"></main>
+
+  <footer class="composer">
+    <input id="input" type="text" placeholder="iMessage" autocomplete="off" />
+    <button id="send" disabled aria-label="Send">↑</button>
+  </footer>
+
+  <div id="toast" class="toast hidden">Sent to the void.</div>
+
+  <script src="app.js"></script>
+</body>
 </html>
