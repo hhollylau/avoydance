@@ -29,9 +29,11 @@ editBtn.type = "button";
 editBtn.textContent = "Edit";
 
 const newThreadBtn = document.createElement("button");
-newThreadBtn.className = "top-action";
+newThreadBtn.className = "top-action top-action-primary";
 newThreadBtn.type = "button";
-newThreadBtn.textContent = "New";
+newThreadBtn.textContent = "+";
+newThreadBtn.setAttribute("aria-label", "New thread");
+newThreadBtn.title = "New thread";
 
 const previewBtn = document.createElement("button");
 previewBtn.className = "top-action";
@@ -60,11 +62,15 @@ lockBtn.textContent = "Lock";
 const spacerEl = document.createElement("div");
 spacerEl.className = "top-spacer";
 
+const quickActionsEl = document.createElement("div");
+quickActionsEl.className = "top-quick-actions";
+quickActionsEl.appendChild(newThreadBtn);
+topbarEl.appendChild(quickActionsEl);
+
 actionsEl.appendChild(backBtn);
 actionsEl.appendChild(spacerEl);
 actionsEl.appendChild(editBtn);
 actionsEl.appendChild(previewBtn);
-actionsEl.appendChild(newThreadBtn);
 actionsEl.appendChild(clearBtn);
 actionsEl.appendChild(passcodeBtn);
 actionsEl.appendChild(lockBtn);
@@ -249,7 +255,7 @@ function renderThreadList() {
   if (state.threads.length === 0) {
     const emptyEl = document.createElement("div");
     emptyEl.className = "empty-state";
-    emptyEl.textContent = "No threads yet. Tap New.";
+    emptyEl.textContent = "No threads yet. Tap +.";
     messagesEl.appendChild(emptyEl);
     return;
   }
@@ -356,8 +362,8 @@ function renderChatView(activeThread) {
 
 function renderTopbar(activeThread) {
   if (!activeThread) {
-    titleEl.textContent = "Messages";
-    subtitleEl.textContent = `private local notes · v${appVersion()}`;
+    titleEl.textContent = `Avoydance v${appVersion()}`;
+    subtitleEl.textContent = "private local notes";
     backBtn.classList.add("hidden");
     editBtn.classList.remove("hidden");
     previewBtn.classList.remove("hidden");
@@ -373,7 +379,7 @@ function renderTopbar(activeThread) {
   }
 
   titleEl.textContent = activeThread.title;
-  subtitleEl.textContent = `unsent notes · timer ${formatTimerLabel(activeThread.disappearAfterMs)}`;
+  subtitleEl.textContent = `unsent notes | timer ${formatTimerLabel(activeThread.disappearAfterMs)}`;
   backBtn.classList.remove("hidden");
   editBtn.classList.add("hidden");
   previewBtn.classList.add("hidden");
