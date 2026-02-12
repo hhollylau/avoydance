@@ -9,6 +9,7 @@ const composerEl = document.querySelector(".composer");
 
 const STORAGE_KEY = "avoydance.app.v1";
 const AUTH_KEY = "avoydance.auth.v1";
+const MOCK_REPLIES = ["ok", "got it", "heard", "copy", "fair", "makes sense", "noted", "yep","right on", "cool", "thanks for sharing", "appreciate it", "good to know", "understood", "solid", "nice", "thank you", "sweet", "glad you said that", "agreed", "exactly", "definitely", "cool cool cool", "okie dokie", "roger that", "yep yep", "yup", "alright", "hmm", "interesting", "noted with thanks", "point taken", "will do", "on it", "sounds good", "k"];
 
 let state = loadState();
 let isEditingThreads = false;
@@ -39,6 +40,10 @@ newThreadBtn.title = "Compose note thread";
 const previewBtn = document.createElement("button");
 previewBtn.className = "top-action";
 previewBtn.type = "button";
+
+const aiBtn = document.createElement("button");
+aiBtn.className = "top-action";
+aiBtn.type = "button";
 
 const timerBtn = document.createElement("button");
 timerBtn.className = "top-action";
@@ -77,6 +82,7 @@ actionsEl.appendChild(backBtn);
 actionsEl.appendChild(spacerEl);
 actionsEl.appendChild(editBtn);
 actionsEl.appendChild(previewBtn);
+actionsEl.appendChild(aiBtn);
 actionsEl.appendChild(clearBtn);
 actionsEl.appendChild(clearAllBtn);
 actionsEl.appendChild(passcodeBtn);
@@ -147,7 +153,7 @@ function defaultState() {
   return {
     activeThreadId: null,
     threads: [thread],
-    settings: { hidePreviews: false },
+    settings: { hidePreviews: false, autoReplies: false },
   };
 }
 
@@ -184,14 +190,20 @@ function loadState() {
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.threads)) return defaultState();
     if (!parsed.settings || typeof parsed.settings !== "object") {
-      parsed.settings = { hidePreviews: false };
+      parsed.settings = { hidePreviews: false, autoReplies: false };
     }
     if (typeof parsed.settings.hidePreviews !== "boolean") {
       parsed.settings.hidePreviews = false;
     }
+    if (typeof parsed.settings.autoReplies !== "boolean") {
+      parsed.settings.autoReplies = false;
+    }
     for (const thread of parsed.threads) {
       if (!Array.isArray(thread.messages)) thread.messages = [];
       if (thread.disappearAfterMs == null) thread.disappearAfterMs = null;
+      for (const msg of thread.messages) {
+        if (!msg.role) msg.role = "me";
+      }
       if (!thread.updatedAt) {
         thread.updatedAt = thread.messages.length
           ? thread.messages[thread.messages.length - 1].ts
@@ -339,7 +351,7 @@ function renderThreadList() {
 
 function addMessageRow(message) {
   const row = document.createElement("div");
-  row.className = "row me";
+  row.className = `row ${message.role || "me"}`;
 
   const content = document.createElement("div");
   content.className = "row-content";
@@ -374,8 +386,10 @@ function renderTopbar(activeThread) {
     backBtn.classList.add("hidden");
     editBtn.classList.remove("hidden");
     previewBtn.classList.remove("hidden");
+    aiBtn.classList.remove("hidden");
     editBtn.textContent = isEditingThreads ? "Done" : "Edit";
     previewBtn.textContent = state.settings.hidePreviews ? "Show Preview" : "Hide Preview";
+    aiBtn.textContent = state.settings.autoReplies ? "Replies: On" : "Replies: Off";
     newThreadBtn.classList.remove("hidden");
     clearBtn.classList.add("hidden");
     clearAllBtn.classList.remove("hidden");
@@ -391,6 +405,7 @@ function renderTopbar(activeThread) {
   backBtn.classList.remove("hidden");
   editBtn.classList.add("hidden");
   previewBtn.classList.add("hidden");
+  aiBtn.classList.add("hidden");
   newThreadBtn.classList.add("hidden");
   clearBtn.classList.remove("hidden");
   clearAllBtn.classList.add("hidden");
@@ -460,7 +475,7 @@ function sendCurrent() {
   const activeThread = getActiveThread();
   if (!activeThread) return;
 
-  const message = { id: uid(), text, ts: Date.now() };
+  const message = { id: uid(), text, ts: Date.now(), role: "me" };
   activeThread.messages.push(message);
   activeThread.updatedAt = message.ts;
   saveState();
@@ -468,7 +483,29 @@ function sendCurrent() {
   inputEl.value = "";
   updateSendEnabled();
   renderChatView(activeThread);
+  maybeSendAutoReply(activeThread.id);
   toast();
+}
+
+function pickMockReply() {
+  const i = Math.floor(Math.random() * MOCK_REPLIES.length);
+  return MOCK_REPLIES[i];
+}
+
+function maybeSendAutoReply(threadId) {
+  if (!state.settings.autoReplies) return;
+  const delay = 700 + Math.floor(Math.random() * 1200);
+  setTimeout(() => {
+    if (!state.settings.autoReplies) return;
+    const thread = state.threads.find((t) => t.id === threadId);
+    if (!thread) return;
+
+    const reply = { id: uid(), text: pickMockReply(), ts: Date.now(), role: "other" };
+    thread.messages.push(reply);
+    thread.updatedAt = reply.ts;
+    saveState();
+    render();
+  }, delay);
 }
 
 function setTimerForActiveThread() {
@@ -630,6 +667,12 @@ previewBtn.addEventListener("click", () => {
   saveState();
   render();
 });
+aiBtn.addEventListener("click", () => {
+  state.settings.autoReplies = !state.settings.autoReplies;
+  saveState();
+  toast(state.settings.autoReplies ? "Auto replies on." : "Auto replies off.");
+  render();
+});
 timerBtn.addEventListener("click", setTimerForActiveThread);
 clearBtn.addEventListener("click", clearActiveThreadMessages);
 clearAllBtn.addEventListener("click", clearAllThreadMessages);
@@ -650,7 +693,8 @@ lockInputEl.addEventListener("keydown", (e) => {
   if (e.key === "Enter") void unlockApp();
 });
 
-if (!state.settings) state.settings = { hidePreviews: false };
+if (!state.settings) state.settings = { hidePreviews: false, autoReplies: false };
+if (typeof state.settings.autoReplies !== "boolean") state.settings.autoReplies = false;
 if (expireAllThreads()) saveState();
 setInterval(() => {
   if (!expireAllThreads()) return;
