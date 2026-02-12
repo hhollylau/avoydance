@@ -31,9 +31,9 @@ editBtn.textContent = "Edit";
 const newThreadBtn = document.createElement("button");
 newThreadBtn.className = "top-action top-action-primary";
 newThreadBtn.type = "button";
-newThreadBtn.textContent = "+";
-newThreadBtn.setAttribute("aria-label", "New thread");
-newThreadBtn.title = "New thread";
+newThreadBtn.textContent = "✎";
+newThreadBtn.setAttribute("aria-label", "Compose note thread");
+newThreadBtn.title = "Compose note thread";
 
 const previewBtn = document.createElement("button");
 previewBtn.className = "top-action";
@@ -255,7 +255,7 @@ function renderThreadList() {
   if (state.threads.length === 0) {
     const emptyEl = document.createElement("div");
     emptyEl.className = "empty-state";
-    emptyEl.textContent = "No threads yet. Tap +.";
+    emptyEl.textContent = "No threads yet. Tap the pencil.";
     messagesEl.appendChild(emptyEl);
     return;
   }
