@@ -61,6 +61,11 @@ clearAllBtn.className = "top-action";
 clearAllBtn.type = "button";
 clearAllBtn.textContent = "Clear All";
 
+const deleteAllBtn = document.createElement("button");
+deleteAllBtn.className = "top-action";
+deleteAllBtn.type = "button";
+deleteAllBtn.textContent = "Delete All";
+
 const passcodeBtn = document.createElement("button");
 passcodeBtn.className = "top-action";
 passcodeBtn.type = "button";
@@ -100,6 +105,7 @@ addMenuItem(previewBtn);
 addMenuItem(aiBtn);
 addMenuItem(clearBtn);
 addMenuItem(clearAllBtn);
+addMenuItem(deleteAllBtn);
 addMenuItem(passcodeBtn);
 addMenuItem(lockBtn);
 addMenuItem(timerBtn);
@@ -421,6 +427,7 @@ function renderTopbar(activeThread) {
     menuBtn.classList.remove("hidden");
     clearBtn.classList.add("hidden");
     clearAllBtn.classList.remove("hidden");
+    deleteAllBtn.classList.remove("hidden");
     passcodeBtn.classList.remove("hidden");
     if (auth.passHash) lockBtn.classList.remove("hidden");
     else lockBtn.classList.add("hidden");
@@ -438,6 +445,7 @@ function renderTopbar(activeThread) {
   menuBtn.classList.remove("hidden");
   clearBtn.classList.remove("hidden");
   clearAllBtn.classList.add("hidden");
+  deleteAllBtn.classList.add("hidden");
   passcodeBtn.classList.add("hidden");
   if (auth.passHash) lockBtn.classList.remove("hidden");
   else lockBtn.classList.add("hidden");
@@ -595,6 +603,25 @@ function clearAllThreadMessages() {
   toast("All thread content cleared.");
 }
 
+function deleteAllThreads() {
+  if (state.threads.length === 0) {
+    toast("No threads to delete.");
+    return;
+  }
+  const totalThreads = state.threads.length;
+  const totalNotes = state.threads.reduce((count, thread) => count + thread.messages.length, 0);
+  const ok = confirm(
+    `Delete ALL threads and notes? (${totalThreads} thread${totalThreads === 1 ? "" : "s"}, ${totalNotes} note${totalNotes === 1 ? "" : "s"})`
+  );
+  if (!ok) return;
+
+  state.threads = [];
+  state.activeThreadId = null;
+  saveState();
+  render();
+  toast("All threads deleted.");
+}
+
 async function unlockApp() {
   if (!auth.passHash) {
     isLocked = false;
@@ -706,6 +733,7 @@ aiBtn.addEventListener("click", () => {
 timerBtn.addEventListener("click", setTimerForActiveThread);
 clearBtn.addEventListener("click", clearActiveThreadMessages);
 clearAllBtn.addEventListener("click", clearAllThreadMessages);
+deleteAllBtn.addEventListener("click", deleteAllThreads);
 passcodeBtn.addEventListener("click", () => {
   void managePasscode();
   setMenuOpen(false);
