@@ -45,18 +45,22 @@ body{
   padding:2px 0;
 }
 .top-action-primary{
-  width:28px;
-  height:28px;
+  width:32px;
+  height:32px;
   border-radius:999px;
   background:var(--blue);
   color:#fff;
-  font-size:16px;
-  font-weight:700;
+  font-size:0;
   line-height:1;
   padding:0;
   display:flex;
   align-items:center;
   justify-content:center;
+}
+.top-action-primary svg{
+  width:18px;
+  height:18px;
+  fill:currentColor;
 }
 .top-action.hidden{
   opacity:0;

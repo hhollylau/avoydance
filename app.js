@@ -31,7 +31,8 @@ editBtn.textContent = "Edit";
 const newThreadBtn = document.createElement("button");
 newThreadBtn.className = "top-action top-action-primary";
 newThreadBtn.type = "button";
-newThreadBtn.textContent = "✎";
+newThreadBtn.innerHTML =
+  '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 17.25V20h2.75l8.1-8.1-2.75-2.75L4 17.25zm12.71-9.04a1.003 1.003 0 0 0 0-1.42l-1.5-1.5a1.003 1.003 0 0 0-1.42 0l-1.17 1.17 2.75 2.75 1.34-1z"/></svg>';
 newThreadBtn.setAttribute("aria-label", "Compose note thread");
 newThreadBtn.title = "Compose note thread";
 
@@ -48,6 +49,11 @@ const clearBtn = document.createElement("button");
 clearBtn.className = "top-action";
 clearBtn.type = "button";
 clearBtn.textContent = "Clear";
+
+const clearAllBtn = document.createElement("button");
+clearAllBtn.className = "top-action";
+clearAllBtn.type = "button";
+clearAllBtn.textContent = "Clear All";
 
 const passcodeBtn = document.createElement("button");
 passcodeBtn.className = "top-action";
@@ -72,6 +78,7 @@ actionsEl.appendChild(spacerEl);
 actionsEl.appendChild(editBtn);
 actionsEl.appendChild(previewBtn);
 actionsEl.appendChild(clearBtn);
+actionsEl.appendChild(clearAllBtn);
 actionsEl.appendChild(passcodeBtn);
 actionsEl.appendChild(lockBtn);
 actionsEl.appendChild(timerBtn);
@@ -371,6 +378,7 @@ function renderTopbar(activeThread) {
     previewBtn.textContent = state.settings.hidePreviews ? "Show Preview" : "Hide Preview";
     newThreadBtn.classList.remove("hidden");
     clearBtn.classList.add("hidden");
+    clearAllBtn.classList.remove("hidden");
     passcodeBtn.classList.remove("hidden");
     if (auth.passHash) lockBtn.classList.remove("hidden");
     else lockBtn.classList.add("hidden");
@@ -385,6 +393,7 @@ function renderTopbar(activeThread) {
   previewBtn.classList.add("hidden");
   newThreadBtn.classList.add("hidden");
   clearBtn.classList.remove("hidden");
+  clearAllBtn.classList.add("hidden");
   passcodeBtn.classList.add("hidden");
   if (auth.passHash) lockBtn.classList.remove("hidden");
   else lockBtn.classList.add("hidden");
@@ -502,6 +511,24 @@ function clearActiveThreadMessages() {
   toast("Thread content cleared.");
 }
 
+function clearAllThreadMessages() {
+  const total = state.threads.reduce((count, thread) => count + thread.messages.length, 0);
+  if (total === 0) {
+    toast("No notes to clear.");
+    return;
+  }
+  const ok = confirm(`Clear all notes from all threads? (${total} note${total === 1 ? "" : "s"})`);
+  if (!ok) return;
+
+  for (const thread of state.threads) {
+    thread.messages = [];
+    thread.updatedAt = Date.now();
+  }
+  saveState();
+  render();
+  toast("All thread content cleared.");
+}
+
 async function unlockApp() {
   if (!auth.passHash) {
     isLocked = false;
@@ -605,6 +632,7 @@ previewBtn.addEventListener("click", () => {
 });
 timerBtn.addEventListener("click", setTimerForActiveThread);
 clearBtn.addEventListener("click", clearActiveThreadMessages);
+clearAllBtn.addEventListener("click", clearAllThreadMessages);
 passcodeBtn.addEventListener("click", () => {
   void managePasscode();
 });
