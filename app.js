@@ -369,8 +369,8 @@ function renderChatView(activeThread) {
 
 function renderTopbar(activeThread) {
   if (!activeThread) {
-    titleEl.textContent = `Avoydance v${appVersion()}`;
-    subtitleEl.textContent = "private local notes";
+    titleEl.textContent = "Avoydance";
+    subtitleEl.textContent = `private local notes | v${appVersion()}`;
     backBtn.classList.add("hidden");
     editBtn.classList.remove("hidden");
     previewBtn.classList.remove("hidden");
@@ -387,7 +387,7 @@ function renderTopbar(activeThread) {
   }
 
   titleEl.textContent = activeThread.title;
-  subtitleEl.textContent = `unsent notes | timer ${formatTimerLabel(activeThread.disappearAfterMs)}`;
+  subtitleEl.textContent = `unsent notes | timer ${formatTimerLabel(activeThread.disappearAfterMs)} | v${appVersion()}`;
   backBtn.classList.remove("hidden");
   editBtn.classList.add("hidden");
   previewBtn.classList.add("hidden");
