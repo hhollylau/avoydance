@@ -25,6 +25,10 @@ backBtn.className = "top-action";
 backBtn.type = "button";
 backBtn.textContent = "Back";
 
+const threadRepliesBtn = document.createElement("button");
+threadRepliesBtn.className = "top-action";
+threadRepliesBtn.type = "button";
+
 const editBtn = document.createElement("button");
 editBtn.className = "top-action";
 editBtn.type = "button";
@@ -113,6 +117,7 @@ topbarEl.appendChild(menuPanelEl);
 
 actionsEl.appendChild(backBtn);
 actionsEl.appendChild(spacerEl);
+actionsEl.appendChild(threadRepliesBtn);
 actionsEl.appendChild(menuBtn);
 topbarEl.appendChild(actionsEl);
 
@@ -416,6 +421,7 @@ function renderTopbar(activeThread) {
     titleEl.textContent = "Avoydance";
     subtitleEl.textContent = `private local notes | v${appVersion()}`;
     backBtn.classList.add("hidden");
+    threadRepliesBtn.classList.add("hidden");
     editBtn.classList.remove("hidden");
     previewBtn.classList.remove("hidden");
     aiBtn.classList.add("hidden");
@@ -434,8 +440,10 @@ function renderTopbar(activeThread) {
   }
 
   titleEl.textContent = activeThread.title;
-  subtitleEl.textContent = `unsent notes | timer ${formatTimerLabel(activeThread.disappearAfterMs)} | v${appVersion()}`;
+  subtitleEl.textContent = `unsent notes | replies ${activeThread.autoReplies ? "on" : "off"} | timer ${formatTimerLabel(activeThread.disappearAfterMs)} | v${appVersion()}`;
   backBtn.classList.remove("hidden");
+  threadRepliesBtn.classList.remove("hidden");
+  threadRepliesBtn.textContent = activeThread.autoReplies ? "Replies On" : "Replies Off";
   editBtn.classList.add("hidden");
   previewBtn.classList.add("hidden");
   aiBtn.classList.remove("hidden");
@@ -728,6 +736,14 @@ aiBtn.addEventListener("click", () => {
   saveState();
   toast(activeThread.autoReplies ? "Replies on for this thread." : "Replies off for this thread.");
   setMenuOpen(false);
+  render();
+});
+threadRepliesBtn.addEventListener("click", () => {
+  const activeThread = getActiveThread();
+  if (!activeThread) return;
+  activeThread.autoReplies = !activeThread.autoReplies;
+  saveState();
+  toast(activeThread.autoReplies ? "Replies on for this thread." : "Replies off for this thread.");
   render();
 });
 timerBtn.addEventListener("click", setTimerForActiveThread);
