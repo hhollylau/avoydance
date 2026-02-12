@@ -8,9 +8,12 @@ const subtitleEl = topbarEl.querySelector(".subtitle");
 const composerEl = document.querySelector(".composer");
 
 const STORAGE_KEY = "avoydance.app.v1";
+const AUTH_KEY = "avoydance.auth.v1";
 
 let state = loadState();
 let isEditingThreads = false;
+let auth = loadAuth();
+let isLocked = Boolean(auth.passHash);
 
 const actionsEl = document.createElement("div");
 actionsEl.className = "top-actions";
@@ -30,10 +33,79 @@ newThreadBtn.className = "top-action";
 newThreadBtn.type = "button";
 newThreadBtn.textContent = "New";
 
+const previewBtn = document.createElement("button");
+previewBtn.className = "top-action";
+previewBtn.type = "button";
+
+const timerBtn = document.createElement("button");
+timerBtn.className = "top-action";
+timerBtn.type = "button";
+timerBtn.textContent = "Timer";
+
+const clearBtn = document.createElement("button");
+clearBtn.className = "top-action";
+clearBtn.type = "button";
+clearBtn.textContent = "Clear";
+
+const passcodeBtn = document.createElement("button");
+passcodeBtn.className = "top-action";
+passcodeBtn.type = "button";
+passcodeBtn.textContent = "Passcode";
+
+const lockBtn = document.createElement("button");
+lockBtn.className = "top-action";
+lockBtn.type = "button";
+lockBtn.textContent = "Lock";
+
+const spacerEl = document.createElement("div");
+spacerEl.className = "top-spacer";
+
 actionsEl.appendChild(backBtn);
+actionsEl.appendChild(spacerEl);
 actionsEl.appendChild(editBtn);
+actionsEl.appendChild(previewBtn);
 actionsEl.appendChild(newThreadBtn);
+actionsEl.appendChild(clearBtn);
+actionsEl.appendChild(passcodeBtn);
+actionsEl.appendChild(lockBtn);
+actionsEl.appendChild(timerBtn);
 topbarEl.appendChild(actionsEl);
+
+const lockScreenEl = document.createElement("div");
+lockScreenEl.className = "lock-screen hidden";
+
+const lockCardEl = document.createElement("div");
+lockCardEl.className = "lock-card";
+
+const lockTitleEl = document.createElement("div");
+lockTitleEl.className = "lock-title";
+lockTitleEl.textContent = "Avoydance";
+
+const lockSubtitleEl = document.createElement("div");
+lockSubtitleEl.className = "lock-subtitle";
+lockSubtitleEl.textContent = "Enter passcode";
+
+const lockInputEl = document.createElement("input");
+lockInputEl.className = "lock-input";
+lockInputEl.type = "password";
+lockInputEl.placeholder = "Passcode";
+lockInputEl.autocomplete = "current-password";
+
+const unlockBtn = document.createElement("button");
+unlockBtn.className = "unlock-btn";
+unlockBtn.type = "button";
+unlockBtn.textContent = "Unlock";
+
+const lockErrorEl = document.createElement("div");
+lockErrorEl.className = "lock-error";
+
+lockCardEl.appendChild(lockTitleEl);
+lockCardEl.appendChild(lockSubtitleEl);
+lockCardEl.appendChild(lockInputEl);
+lockCardEl.appendChild(unlockBtn);
+lockCardEl.appendChild(lockErrorEl);
+lockScreenEl.appendChild(lockCardEl);
+document.body.appendChild(lockScreenEl);
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -49,6 +121,7 @@ function createThread(title = "Unsent") {
     title,
     messages: [],
     updatedAt: Date.now(),
+    disappearAfterMs: null,
   };
 }
 
@@ -57,7 +130,34 @@ function defaultState() {
   return {
     activeThreadId: null,
     threads: [thread],
+    settings: { hidePreviews: false },
   };
+}
+
+function loadAuth() {
+  try {
+    const raw = localStorage.getItem(AUTH_KEY);
+    if (!raw) return { passHash: null };
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed.passHash !== "string") return { passHash: null };
+    return { passHash: parsed.passHash || null };
+  } catch {
+    return { passHash: null };
+  }
+}
+
+function saveAuth() {
+  localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
+}
+
+async function hashPasscode(passcode) {
+  if (window.crypto && window.crypto.subtle) {
+    const bytes = new TextEncoder().encode(passcode);
+    const hashBuffer = await window.crypto.subtle.digest("SHA-256", bytes);
+    const hashBytes = Array.from(new Uint8Array(hashBuffer));
+    return hashBytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  return `plain:${passcode}`;
 }
 
 function loadState() {
@@ -66,8 +166,15 @@ function loadState() {
     if (!raw) return defaultState();
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.threads)) return defaultState();
+    if (!parsed.settings || typeof parsed.settings !== "object") {
+      parsed.settings = { hidePreviews: false };
+    }
+    if (typeof parsed.settings.hidePreviews !== "boolean") {
+      parsed.settings.hidePreviews = false;
+    }
     for (const thread of parsed.threads) {
       if (!Array.isArray(thread.messages)) thread.messages = [];
+      if (thread.disappearAfterMs == null) thread.disappearAfterMs = null;
       if (!thread.updatedAt) {
         thread.updatedAt = thread.messages.length
           ? thread.messages[thread.messages.length - 1].ts
@@ -77,6 +184,7 @@ function loadState() {
     return {
       activeThreadId: parsed.activeThreadId || null,
       threads: parsed.threads,
+      settings: parsed.settings,
     };
   } catch {
     return defaultState();
@@ -93,6 +201,31 @@ function getActiveThread() {
 
 function sortThreadsByRecent() {
   state.threads.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+}
+
+function formatTimerLabel(ms) {
+  if (!ms) return "off";
+  const hours = Math.round(ms / 3600000);
+  return hours === 24 ? "1 day" : `${hours}h`;
+}
+
+function expireThreadMessages(thread, now = Date.now()) {
+  if (!thread.disappearAfterMs) return false;
+  const before = thread.messages.length;
+  thread.messages = thread.messages.filter((msg) => now - msg.ts < thread.disappearAfterMs);
+  if (thread.messages.length > 0) {
+    thread.updatedAt = thread.messages[thread.messages.length - 1].ts;
+  }
+  return thread.messages.length !== before;
+}
+
+function expireAllThreads() {
+  let changed = false;
+  const now = Date.now();
+  for (const thread of state.threads) {
+    if (expireThreadMessages(thread, now)) changed = true;
+  }
+  return changed;
 }
 
 function toast(msg = "Sent to the void.") {
@@ -144,9 +277,13 @@ function renderThreadList() {
 
     const preview = document.createElement("div");
     preview.className = "thread-preview";
-    preview.textContent = thread.messages.length
-      ? thread.messages[thread.messages.length - 1].text
-      : "No messages yet";
+    if (state.settings.hidePreviews) {
+      preview.textContent = "Message hidden";
+    } else {
+      preview.textContent = thread.messages.length
+        ? thread.messages[thread.messages.length - 1].text
+        : "No messages yet";
+    }
 
     const del = document.createElement("button");
     del.className = "thread-delete";
@@ -219,16 +356,29 @@ function renderTopbar(activeThread) {
     subtitleEl.textContent = "avoydance";
     backBtn.classList.add("hidden");
     editBtn.classList.remove("hidden");
+    previewBtn.classList.remove("hidden");
     editBtn.textContent = isEditingThreads ? "Done" : "Edit";
+    previewBtn.textContent = state.settings.hidePreviews ? "Show Preview" : "Hide Preview";
     newThreadBtn.classList.remove("hidden");
+    clearBtn.classList.add("hidden");
+    passcodeBtn.classList.remove("hidden");
+    if (auth.passHash) lockBtn.classList.remove("hidden");
+    else lockBtn.classList.add("hidden");
+    timerBtn.classList.add("hidden");
     return;
   }
 
   titleEl.textContent = activeThread.title;
-  subtitleEl.textContent = "unsent messages";
+  subtitleEl.textContent = `unsent messages - timer ${formatTimerLabel(activeThread.disappearAfterMs)}`;
   backBtn.classList.remove("hidden");
   editBtn.classList.add("hidden");
+  previewBtn.classList.add("hidden");
   newThreadBtn.classList.add("hidden");
+  clearBtn.classList.remove("hidden");
+  passcodeBtn.classList.add("hidden");
+  if (auth.passHash) lockBtn.classList.remove("hidden");
+  else lockBtn.classList.add("hidden");
+  timerBtn.classList.remove("hidden");
 }
 
 function renderComposer(activeThread) {
@@ -243,6 +393,15 @@ function renderComposer(activeThread) {
 }
 
 function render() {
+  if (isLocked) {
+    composerEl.classList.add("hidden");
+    lockScreenEl.classList.remove("hidden");
+    lockInputEl.focus();
+    return;
+  }
+  lockScreenEl.classList.add("hidden");
+  const expired = expireAllThreads();
+  if (expired) saveState();
   const activeThread = getActiveThread();
   renderTopbar(activeThread);
   renderComposer(activeThread);
@@ -293,6 +452,132 @@ function sendCurrent() {
   toast();
 }
 
+function setTimerForActiveThread() {
+  const activeThread = getActiveThread();
+  if (!activeThread) return;
+  const currentHours = activeThread.disappearAfterMs
+    ? Math.round(activeThread.disappearAfterMs / 3600000)
+    : 0;
+  const input = prompt(
+    `Disappearing timer for "${activeThread.title}"\nEnter hours (0=off, 1-24):`,
+    String(currentHours)
+  );
+  if (input == null) return;
+  const hours = Number(input.trim());
+  if (!Number.isInteger(hours) || hours < 0 || hours > 24) {
+    toast("Use a whole number from 0 to 24.");
+    return;
+  }
+
+  activeThread.disappearAfterMs = hours === 0 ? null : hours * 3600000;
+  expireThreadMessages(activeThread);
+  saveState();
+  render();
+  toast(hours === 0 ? "Timer off for this thread." : `Timer set: ${formatTimerLabel(activeThread.disappearAfterMs)}`);
+}
+
+function clearActiveThreadMessages() {
+  const activeThread = getActiveThread();
+  if (!activeThread) return;
+  if (activeThread.messages.length === 0) {
+    toast("No messages to clear.");
+    return;
+  }
+  const ok = confirm(`Clear all messages in "${activeThread.title}"?`);
+  if (!ok) return;
+  activeThread.messages = [];
+  activeThread.updatedAt = Date.now();
+  saveState();
+  render();
+  toast("Thread content cleared.");
+}
+
+async function unlockApp() {
+  if (!auth.passHash) {
+    isLocked = false;
+    render();
+    return;
+  }
+  const passcode = lockInputEl.value.trim();
+  if (!passcode) return;
+  const hash = await hashPasscode(passcode);
+  if (hash !== auth.passHash) {
+    lockErrorEl.textContent = "Incorrect passcode.";
+    lockInputEl.select();
+    return;
+  }
+  lockInputEl.value = "";
+  lockErrorEl.textContent = "";
+  isLocked = false;
+  render();
+}
+
+function lockApp() {
+  if (!auth.passHash) return;
+  isLocked = true;
+  lockInputEl.value = "";
+  lockErrorEl.textContent = "";
+  render();
+}
+
+async function managePasscode() {
+  if (!auth.passHash) {
+    const pass1 = prompt("Set a passcode (4+ characters):");
+    if (pass1 == null) return;
+    if (pass1.trim().length < 4) {
+      toast("Use at least 4 characters.");
+      return;
+    }
+    const pass2 = prompt("Re-enter passcode:");
+    if (pass2 == null) return;
+    if (pass1 !== pass2) {
+      toast("Passcodes did not match.");
+      return;
+    }
+    auth.passHash = await hashPasscode(pass1);
+    saveAuth();
+    toast("Passcode enabled.");
+    render();
+    return;
+  }
+
+  const current = prompt("Enter current passcode:");
+  if (current == null) return;
+  const currentHash = await hashPasscode(current);
+  if (currentHash !== auth.passHash) {
+    toast("Current passcode is incorrect.");
+    return;
+  }
+
+  const change = confirm("Press OK to change passcode. Press Cancel to remove passcode.");
+  if (!change) {
+    auth.passHash = null;
+    saveAuth();
+    toast("Passcode removed.");
+    isLocked = false;
+    render();
+    return;
+  }
+
+  const pass1 = prompt("New passcode (4+ characters):");
+  if (pass1 == null) return;
+  if (pass1.trim().length < 4) {
+    toast("Use at least 4 characters.");
+    return;
+  }
+  const pass2 = prompt("Re-enter new passcode:");
+  if (pass2 == null) return;
+  if (pass1 !== pass2) {
+    toast("Passcodes did not match.");
+    return;
+  }
+
+  auth.passHash = await hashPasscode(pass1);
+  saveAuth();
+  toast("Passcode updated.");
+  render();
+}
+
 inputEl.addEventListener("input", updateSendEnabled);
 sendBtn.addEventListener("click", sendCurrent);
 inputEl.addEventListener("keydown", (e) => {
@@ -303,11 +588,36 @@ editBtn.addEventListener("click", () => {
   isEditingThreads = !isEditingThreads;
   render();
 });
+previewBtn.addEventListener("click", () => {
+  state.settings.hidePreviews = !state.settings.hidePreviews;
+  saveState();
+  render();
+});
+timerBtn.addEventListener("click", setTimerForActiveThread);
+clearBtn.addEventListener("click", clearActiveThreadMessages);
+passcodeBtn.addEventListener("click", () => {
+  void managePasscode();
+});
+lockBtn.addEventListener("click", lockApp);
 backBtn.addEventListener("click", () => {
   state.activeThreadId = null;
   isEditingThreads = false;
   saveState();
   render();
 });
+unlockBtn.addEventListener("click", () => {
+  void unlockApp();
+});
+lockInputEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") void unlockApp();
+});
+
+if (!state.settings) state.settings = { hidePreviews: false };
+if (expireAllThreads()) saveState();
+setInterval(() => {
+  if (!expireAllThreads()) return;
+  saveState();
+  render();
+}, 30000);
 
 render();
