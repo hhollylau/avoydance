@@ -15,6 +15,7 @@ let state = loadState();
 let isEditingThreads = false;
 let auth = loadAuth();
 let isLocked = Boolean(auth.passHash);
+let isMenuOpen = false;
 
 const actionsEl = document.createElement("div");
 actionsEl.className = "top-actions";
@@ -70,6 +71,13 @@ lockBtn.className = "top-action";
 lockBtn.type = "button";
 lockBtn.textContent = "Lock";
 
+const menuBtn = document.createElement("button");
+menuBtn.className = "top-action menu-trigger";
+menuBtn.type = "button";
+menuBtn.textContent = "...";
+menuBtn.setAttribute("aria-label", "More options");
+menuBtn.title = "More options";
+
 const spacerEl = document.createElement("div");
 spacerEl.className = "top-spacer";
 
@@ -78,16 +86,28 @@ quickActionsEl.className = "top-quick-actions";
 quickActionsEl.appendChild(newThreadBtn);
 topbarEl.appendChild(quickActionsEl);
 
+const menuPanelEl = document.createElement("div");
+menuPanelEl.className = "top-menu hidden";
+menuPanelEl.setAttribute("role", "menu");
+
+function addMenuItem(btn) {
+  btn.classList.add("top-menu-item");
+  menuPanelEl.appendChild(btn);
+}
+
+addMenuItem(editBtn);
+addMenuItem(previewBtn);
+addMenuItem(aiBtn);
+addMenuItem(clearBtn);
+addMenuItem(clearAllBtn);
+addMenuItem(passcodeBtn);
+addMenuItem(lockBtn);
+addMenuItem(timerBtn);
+topbarEl.appendChild(menuPanelEl);
+
 actionsEl.appendChild(backBtn);
 actionsEl.appendChild(spacerEl);
-actionsEl.appendChild(editBtn);
-actionsEl.appendChild(previewBtn);
-actionsEl.appendChild(aiBtn);
-actionsEl.appendChild(clearBtn);
-actionsEl.appendChild(clearAllBtn);
-actionsEl.appendChild(passcodeBtn);
-actionsEl.appendChild(lockBtn);
-actionsEl.appendChild(timerBtn);
+actionsEl.appendChild(menuBtn);
 topbarEl.appendChild(actionsEl);
 
 const lockScreenEl = document.createElement("div");
@@ -263,6 +283,12 @@ function toast(msg = "Sent to the void.") {
   setTimeout(() => toastEl.classList.add("hidden"), 900);
 }
 
+function setMenuOpen(open) {
+  isMenuOpen = open;
+  if (isMenuOpen) menuPanelEl.classList.remove("hidden");
+  else menuPanelEl.classList.add("hidden");
+}
+
 function updateSendEnabled() {
   sendBtn.disabled = inputEl.value.trim().length === 0;
 }
@@ -380,6 +406,7 @@ function renderChatView(activeThread) {
 }
 
 function renderTopbar(activeThread) {
+  setMenuOpen(false);
   if (!activeThread) {
     titleEl.textContent = "Avoydance";
     subtitleEl.textContent = `private local notes | v${appVersion()}`;
@@ -391,6 +418,7 @@ function renderTopbar(activeThread) {
     previewBtn.textContent = state.settings.hidePreviews ? "Show Preview" : "Hide Preview";
     aiBtn.textContent = state.settings.autoReplies ? "Replies: On" : "Replies: Off";
     newThreadBtn.classList.remove("hidden");
+    menuBtn.classList.remove("hidden");
     clearBtn.classList.add("hidden");
     clearAllBtn.classList.remove("hidden");
     passcodeBtn.classList.remove("hidden");
@@ -407,6 +435,7 @@ function renderTopbar(activeThread) {
   previewBtn.classList.add("hidden");
   aiBtn.classList.add("hidden");
   newThreadBtn.classList.add("hidden");
+  menuBtn.classList.remove("hidden");
   clearBtn.classList.remove("hidden");
   clearAllBtn.classList.add("hidden");
   passcodeBtn.classList.add("hidden");
@@ -671,6 +700,7 @@ aiBtn.addEventListener("click", () => {
   state.settings.autoReplies = !state.settings.autoReplies;
   saveState();
   toast(state.settings.autoReplies ? "Auto replies on." : "Auto replies off.");
+  setMenuOpen(false);
   render();
 });
 timerBtn.addEventListener("click", setTimerForActiveThread);
@@ -678,13 +708,27 @@ clearBtn.addEventListener("click", clearActiveThreadMessages);
 clearAllBtn.addEventListener("click", clearAllThreadMessages);
 passcodeBtn.addEventListener("click", () => {
   void managePasscode();
+  setMenuOpen(false);
 });
-lockBtn.addEventListener("click", lockApp);
+lockBtn.addEventListener("click", () => {
+  lockApp();
+  setMenuOpen(false);
+});
 backBtn.addEventListener("click", () => {
   state.activeThreadId = null;
   isEditingThreads = false;
   saveState();
   render();
+});
+menuBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  setMenuOpen(!isMenuOpen);
+});
+document.addEventListener("click", (e) => {
+  const target = e.target;
+  if (!(target instanceof Node)) return;
+  if (menuPanelEl.contains(target) || menuBtn.contains(target)) return;
+  setMenuOpen(false);
 });
 unlockBtn.addEventListener("click", () => {
   void unlockApp();
